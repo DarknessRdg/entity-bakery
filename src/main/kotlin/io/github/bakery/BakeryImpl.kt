@@ -3,20 +3,25 @@ package io.github.bakery
 import java.lang.reflect.Constructor
 
 
-class BakeryImpl : Bakery {
+class BakeryImpl(
+    additionalFakeBuilder: Map<out Class<out Any>, () -> Any> = emptyMap()
+) : Bakery {
+
+    private val fakeBuilder = PrimitiveFakeBuilder.toMutableMap()
+
+    init {
+        additionalFakeBuilder.entries.forEach { (k, v) ->
+            fakeBuilder[k] = v
+        }
+    }
+
     override fun <T> make(model: Class<T>): T {
         val constructor = getMoreCompleteConstructor(model)
 
+        checkCanConstructOrElseThrow(constructor, model)
         val params = buildConstructorParams(constructor)
 
         return constructor.newInstance(*params) as T
-    }
-
-    override fun getFakeBuilder(): Map<Class<out Any>, Any> {
-        return mapOf(
-            String::class.java to "",
-            Int::class.java to 1
-        )
     }
 
     private fun <T> getMoreCompleteConstructor(model: Class<T>) = model.constructors.sortedBy { it.parameterCount }
@@ -25,18 +30,22 @@ class BakeryImpl : Bakery {
     private fun buildConstructorParams(constructor: Constructor<*>): Array<Any> {
         val params = arrayListOf<Any>()
 
-        val builders = getFakeBuilder()
-
         constructor.parameterTypes.forEach { type ->
-            val possibleValue = builders[type]
+            val possibleValue = fakeBuilder[type]
 
             if (possibleValue == null) {
                 params.add(make(type))
             } else {
-                params.add(possibleValue)
+                params.add(possibleValue())
             }
         }
 
         return params.toArray()
+    }
+
+    private fun checkCanConstructOrElseThrow(constructor: Constructor<*>, model: Class<*>) {
+        if (constructor.parameterTypes.isEmpty() && !fakeBuilder.containsKey(model)) {
+            throw UnknownTypeToBuildException(model)
+        }
     }
 }
