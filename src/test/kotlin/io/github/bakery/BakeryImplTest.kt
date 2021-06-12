@@ -3,6 +3,7 @@ package io.github.bakery
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import java.util.*
 
 
 val fakeString: () -> String = { "Test" }
@@ -10,7 +11,7 @@ val fakeInt: () -> Int = { 100 }
 
 
 internal class BakeryImplTest {
-    private val bakery = BakeryImpl(
+    private val bakery: Bakery = BakeryImpl(
         additionalFakeBuilder = mapOf(
             String::class.java to fakeString,
             Int::class.java to fakeInt
@@ -59,5 +60,32 @@ internal class BakeryImplTest {
         assertThatThrownBy {
             bakery.make<FakeModel>()
         }.isInstanceOf(UnknownTypeToBuildException::class.java)
+    }
+
+    @Test
+    fun `When build a class with multiple constructors, Then always build with construct that has more arguments`() {
+        class MultipleConstructorClass {
+            var firstField: Long? = null
+                private set
+
+            var secondField: Int? = null
+                private set
+
+            constructor() {}
+
+            constructor(firstField: Long?) {
+                this.firstField = firstField
+            }
+
+            constructor(firstField: Long?, secondField: Int?) {
+                this.firstField = firstField
+                this.secondField = secondField
+            }
+        }
+
+        val model = bakery.make<MultipleConstructorClass>()
+
+        assertThat(model.firstField).isNotNull
+        assertThat(model.secondField).isNotNull
     }
 }
