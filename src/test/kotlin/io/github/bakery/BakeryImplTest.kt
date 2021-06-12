@@ -3,12 +3,14 @@ package io.github.bakery
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
-import java.util.*
-
 
 val fakeString: () -> String = { "Test" }
 val fakeInt: () -> Int = { 100 }
 
+
+enum class Direction {
+    NORTH, SOUTH, WEST, EAST
+}
 
 internal class BakeryImplTest {
     private val bakery: Bakery = BakeryImpl(
@@ -87,5 +89,37 @@ internal class BakeryImplTest {
 
         assertThat(model.firstField).isNotNull
         assertThat(model.secondField).isNotNull
+    }
+
+    @Test
+    fun `When build a class with an Enum field, Then take one of the options available`() {
+        class Model(val direction: Direction)
+
+        val positionsCreated = mutableSetOf<Int>()
+
+        var maxRepeat = 50
+
+        while (positionsCreated.size != Direction.values().size && maxRepeat-- != 0) {
+            val model = bakery.make<Model>()
+            positionsCreated.add(
+                Direction.values().indexOf(model.direction)
+            )
+        }
+
+        assertThat(positionsCreated.size).isEqualTo(Direction.values().size)
+    }
+
+    @Test
+    fun `When give an builder to make an Enum, Then use that builder to create the Enum`() {
+        class Model(val direction: Direction)
+
+        val bakery = BakeryImpl(
+            additionalFakeBuilder = mapOf(Direction::class.java to { Direction.NORTH })
+        )
+
+        repeat(20) {
+            val model = bakery.make<Model>()
+            assertThat(model.direction).isEqualTo(Direction.NORTH)
+        }
     }
 }

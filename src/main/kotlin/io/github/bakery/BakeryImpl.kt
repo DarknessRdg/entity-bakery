@@ -24,8 +24,8 @@ class BakeryImpl(
         return constructor.newInstance(*params) as T
     }
 
-    private fun <T> getMoreCompleteConstructor(model: Class<T>) = model.constructors.sortedBy { it.parameterCount }
-        .first()
+    private fun <T> getMoreCompleteConstructor(model: Class<T>) = model.constructors
+        .sortedBy { it.parameterCount }.last()
 
     private fun buildConstructorParams(constructor: Constructor<*>): Array<Any> {
         val params = arrayListOf<Any>()
@@ -34,7 +34,8 @@ class BakeryImpl(
             val possibleValue = fakeBuilder[type]
 
             if (possibleValue == null) {
-                params.add(make(type))
+                val value = if (type.isEnum) type.enumConstants.random() else make(type)
+                params.add(value)
             } else {
                 params.add(possibleValue())
             }
